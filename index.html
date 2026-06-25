@@ -317,15 +317,14 @@
 
 <main>
   <!-- FILTERS -->
-  <div class="filters">
-    <div class="filter-group">
-      <label>From Date</label>
-      <input type="date" id="dateFrom" onchange="applyFilters()" />
-    </div>
-    <div class="filter-group">
-      <label>To Date</label>
-      <input type="date" id="dateTo" onchange="applyFilters()" />
-    </div>
+  <div class="filter-group">
+  <label>Date Range</label>
+  <input
+    type="text"
+    id="dateRange"
+    placeholder="Select Date Range"
+  />
+</div>
     <div class="filter-group">
       <label>Login User</label>
       <select id="filterLogin" onchange="applyFilters()">
