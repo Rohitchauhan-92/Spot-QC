@@ -469,7 +469,43 @@ if (!text || text.trim().length === 0) {
         <td class="mono">${((cnt/total)*100).toFixed(1)}%</td>
       </tr>`).join('');
   }
+function buildTopQCUsers() {
 
+    const map = {};
+
+    filteredRows.forEach(r => {
+
+        const status = (r.submitIssue || "").trim().toLowerCase();
+
+        // Ignore Done and Blank
+        if (status === "" || status === "done") return;
+
+        const qc = r.qcUser || "N/A";
+
+        map[qc] = (map[qc] || 0) + 1;
+
+    });
+
+    const rows = Object.entries(map)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+    const max = rows.length ? rows[0][1] : 1;
+
+    document.getElementById("tableTopQC").innerHTML =
+        rows.map(([qc, count]) => `
+            <tr>
+                <td>${escHtml(qc)}</td>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width:${Math.max(4,(count/max)*120)}px"></div>
+                        <span class="bar-val">${count}</span>
+                    </div>
+                </td>
+            </tr>
+        `).join("");
+
+}
   // ── MAIN TABLE ───────────────────────────────────────────────────────
   function renderTable() {
     const start = (currentPage - 1) * PAGE_SIZE;
