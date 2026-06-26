@@ -81,14 +81,64 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 <main>
   <!-- FILTERS -->
   <div class="filters">
-    <div class="filter-group">
-      <label>From Date</label>
-      <input type="date" id="dateFrom" onchange="applyFilters()" />
+    <div class="filter-group" style="min-width:200px;position:relative;">
+      <label>Date Range</label>
+      <button id="dateRangeBtn" onclick="toggleDatePicker(event)" style="
+        background:var(--surface2);border:1px solid var(--accent);color:var(--text);
+        border-radius:7px;padding:8px 12px;font-size:0.82rem;font-family:var(--sans);
+        cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+        outline:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="dateRangeLabel">Last 30 days</span>
+      </button>
+      <!-- hidden date range picker panel -->
+      <div id="datePickerPanel" style="display:none;position:fixed;z-index:9999;background:var(--surface2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.55);min-width:540px;" onclick="event.stopPropagation()">
+        <div style="display:flex;">
+          <!-- LEFT: quick select -->
+          <div style="width:190px;border-right:1px solid var(--border);padding:14px 0;">
+            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:0 18px 8px;">Quick Select</div>
+            <div id="quickList"></div>
+            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:14px 18px 8px;">Months</div>
+            <div id="monthList"></div>
+            <div style="height:1px;background:var(--border);margin:10px 0;"></div>
+            <div id="extraList"></div>
+          </div>
+          <!-- RIGHT: calendar + custom -->
+          <div style="padding:18px 20px;flex:1;">
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:12px;">Custom Date Range</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:12px;">Click a start date, then click an end date.</div>
+            <!-- Month nav -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <button onclick="calNav(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">‹</button>
+              <span id="calMonthLabel" style="font-weight:600;font-size:0.9rem;color:var(--text);"></span>
+              <button onclick="calNav(1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">›</button>
+            </div>
+            <!-- Day-of-week headers -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">SU</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">MO</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">TU</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">WE</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">TH</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">FR</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">SA</span>
+            </div>
+            <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+            <!-- Range display + actions -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+              <span id="calRangeText" style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);"></span>
+              <div style="display:flex;gap:8px;">
+                <button onclick="cancelDatePicker()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 16px;border-radius:7px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);">Cancel</button>
+                <button onclick="applyCustomRange()" style="background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);font-weight:600;">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="filter-group">
-      <label>To Date</label>
-      <input type="date" id="dateTo" onchange="applyFilters()" />
-    </div>
+    <!-- hidden real date inputs still used by applyFilters() -->
+    <input type="hidden" id="dateFrom" />
+    <input type="hidden" id="dateTo" />
     <div class="filter-group">
       <label>Login User</label>
       <select id="filterLogin" onchange="applyFilters()">
@@ -329,16 +379,7 @@ if (!text || text.trim().length === 0) {
     fill('filterEditing', unique('editUser'));
     fill('filterStatus',  unique('submitIssue'));
 
-    // Set default date range
-    const dates = allRows.map(r => r._date).filter(Boolean);
-    if (dates.length) {
-      const minD = new Date(Math.min(...dates));
-      const maxD = new Date(Math.max(...dates));
-      if (!document.getElementById('dateFrom').value)
-        document.getElementById('dateFrom').value = fmt(minD);
-      if (!document.getElementById('dateTo').value)
-        document.getElementById('dateTo').value   = fmt(maxD);
-    }
+    // date range defaults are handled by the date picker widget
   }
 
   function fill(id, values) {
@@ -356,6 +397,8 @@ if (!text || text.trim().length === 0) {
   function clearFilters() {
     document.getElementById('dateFrom').value    = '';
     document.getElementById('dateTo').value      = '';
+    document.getElementById('dateRangeLabel').textContent = 'All time';
+    activePreset = 'All time';
     document.getElementById('filterLogin').value = '';
     document.getElementById('filterQC').value    = '';
     document.getElementById('filterEditing').value = '';
@@ -575,6 +618,176 @@ function buildTopQCUsers() {
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;');
   }
+
+  // ── DATE RANGE PICKER ────────────────────────────────────────────────
+  const QUICK_PRESETS = [
+    { label: 'Today',      fn: () => { const d=new Date(); return [d,d]; } },
+    { label: 'Yesterday',  fn: () => { const d=new Date(); d.setDate(d.getDate()-1); return [d,d]; } },
+    { label: 'Last 7 days',fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-6); return [s,e]; } },
+    { label: 'Last 30 days',fn:() => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-29); return [s,e]; } },
+  ];
+  const MONTH_PRESETS = [
+    { label: 'This month',   fn: () => { const n=new Date(); return [new Date(n.getFullYear(),n.getMonth(),1),new Date(n.getFullYear(),n.getMonth()+1,0)]; } },
+    { label: 'Last month',   fn: () => { const n=new Date(); return [new Date(n.getFullYear(),n.getMonth()-1,1),new Date(n.getFullYear(),n.getMonth(),0)]; } },
+    { label: 'Last 3 months',fn: () => { const e=new Date(),s=new Date(); s.setMonth(s.getMonth()-3); return [s,e]; } },
+    { label: 'Last 6 months',fn: () => { const e=new Date(),s=new Date(); s.setMonth(s.getMonth()-6); return [s,e]; } },
+  ];
+  const EXTRA_PRESETS = [
+    { label: 'This year',    fn: () => { const n=new Date(); return [new Date(n.getFullYear(),0,1),new Date(n.getFullYear(),11,31)]; } },
+    { label: 'All time',     fn: () => [null,null] },
+    { label: 'Custom range', fn: () => null },
+  ];
+
+  let calYear, calMonth, calSelStart=null, calSelEnd=null, calHover=null, activePreset='Last 30 days';
+
+  function buildQuickLists() {
+    function makeItem(p, id) {
+      const el = document.createElement('div');
+      el.id = id;
+      el.textContent = p.label;
+      el.style.cssText = 'padding:7px 18px;font-size:.82rem;cursor:pointer;border-radius:6px;transition:background .1s;color:var(--text);';
+      el.onmouseover = () => { if(el.id !== 'dp-active') el.style.background='rgba(255,255,255,.05)'; };
+      el.onmouseout  = () => { if(el.id !== 'dp-active') el.style.background=''; };
+      el.onclick = () => {
+        if(p.label === 'Custom range') { highlightPreset(p.label); return; }
+        const res = p.fn();
+        if(!res) { setRange(null,null,'All time'); }
+        else { setRange(res[0],res[1],p.label); }
+        closeDatePicker();
+      };
+      return el;
+    }
+    const ql=document.getElementById('quickList');
+    QUICK_PRESETS.forEach((p,i)=>ql.appendChild(makeItem(p,'qp-'+i)));
+    const ml=document.getElementById('monthList');
+    MONTH_PRESETS.forEach((p,i)=>ml.appendChild(makeItem(p,'mp-'+i)));
+    const el=document.getElementById('extraList');
+    EXTRA_PRESETS.forEach((p,i)=>el.appendChild(makeItem(p,'ep-'+i)));
+  }
+
+  function highlightPreset(label) {
+    activePreset = label;
+    document.querySelectorAll('#datePickerPanel [id^="qp-"],[id^="mp-"],[id^="ep-"]').forEach(el=>{
+      if(el.textContent===label){
+        el.style.background='var(--accent)';el.style.color='#fff';el.id+=''; // mark
+      } else {
+        el.style.background='';el.style.color='var(--text)';
+      }
+    });
+  }
+
+  let calViewYear, calViewMonth;
+  function initCal() {
+    const now = new Date();
+    calViewYear  = now.getFullYear();
+    calViewMonth = now.getMonth();
+    renderCal();
+  }
+  function calNav(dir) {
+    calViewMonth += dir;
+    if(calViewMonth<0){calViewMonth=11;calViewYear--;}
+    if(calViewMonth>11){calViewMonth=0;calViewYear++;}
+    renderCal();
+  }
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function renderCal() {
+    document.getElementById('calMonthLabel').textContent = MONTHS[calViewMonth]+' '+calViewYear;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth+1, 0).getDate();
+    // empty cells
+    for(let i=0;i<firstDay;i++){
+      const blank=document.createElement('div'); blank.style.height='32px'; grid.appendChild(blank);
+    }
+    for(let d=1;d<=daysInMonth;d++){
+      const date = new Date(calViewYear, calViewMonth, d);
+      const btn  = document.createElement('button');
+      btn.textContent = d;
+      btn.style.cssText = 'width:100%;height:32px;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);transition:background .1s;';
+      styleCalDay(btn, date);
+      btn.onclick = () => {
+        if(!calSelStart || (calSelStart && calSelEnd)) {
+          calSelStart = date; calSelEnd = null;
+        } else {
+          if(date < calSelStart) { calSelEnd=calSelStart; calSelStart=date; }
+          else { calSelEnd = date; }
+        }
+        updateCalRangeText();
+        renderCal();
+      };
+      btn.onmouseover = () => { calHover=date; renderCal(); };
+      btn.onmouseout  = () => { calHover=null; renderCal(); };
+      grid.appendChild(btn);
+    }
+  }
+  function styleCalDay(btn, date) {
+    const inRange = isInRange(date);
+    const isStart = calSelStart && sameDay(date, calSelStart);
+    const isEnd   = calSelEnd   && sameDay(date, calSelEnd);
+    if(isStart||isEnd){ btn.style.background='var(--accent)';btn.style.color='#fff';btn.style.fontWeight='700'; }
+    else if(inRange){ btn.style.background='rgba(108,99,255,.25)';btn.style.color='var(--text)'; }
+    else { btn.style.background='transparent';btn.style.color='var(--text)'; }
+  }
+  function isInRange(date) {
+    const s = calSelStart, e = calSelEnd || calHover;
+    if(!s) return false;
+    const lo=s<(e||s)?s:(e||s), hi=s<(e||s)?(e||s):s;
+    return date>lo && date<hi;
+  }
+  function sameDay(a,b){ return a&&b&&a.toDateString()===b.toDateString(); }
+  function updateCalRangeText() {
+    const fmt2 = d => d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-') : '?';
+    document.getElementById('calRangeText').textContent =
+      calSelStart ? fmt2(calSelStart) + (calSelEnd ? ' → '+fmt2(calSelEnd) : ' → ?') : '';
+  }
+  function applyCustomRange() {
+    if(!calSelStart) return;
+    const end = calSelEnd || calSelStart;
+    setRange(calSelStart, end, 'Custom range');
+    closeDatePicker();
+  }
+
+  function setRange(s, e, label) {
+    const fmt3 = d => d ? d.toISOString().slice(0,10) : '';
+    document.getElementById('dateFrom').value = fmt3(s);
+    document.getElementById('dateTo').value   = fmt3(e);
+    document.getElementById('dateRangeLabel').textContent = label || 'Custom range';
+    highlightPreset(label);
+    applyFilters();
+  }
+
+  function toggleDatePicker(e) {
+    e.stopPropagation();
+    const panel = document.getElementById('datePickerPanel');
+    if(panel.style.display==='none') {
+      // position below button
+      const btn = document.getElementById('dateRangeBtn');
+      const r = btn.getBoundingClientRect();
+      panel.style.top  = (r.bottom+6)+'px';
+      panel.style.left = r.left+'px';
+      panel.style.display='block';
+      initCal();
+      highlightPreset(activePreset);
+    } else {
+      closeDatePicker();
+    }
+  }
+  function closeDatePicker() {
+    document.getElementById('datePickerPanel').style.display='none';
+  }
+  function cancelDatePicker() { closeDatePicker(); }
+
+  document.addEventListener('click', ()=>{ closeDatePicker(); });
+
+  // init picker lists & default 30-day range
+  buildQuickLists();
+  (function(){
+    const e=new Date(),s=new Date(); s.setDate(s.getDate()-29);
+    document.getElementById('dateFrom').value = s.toISOString().slice(0,10);
+    document.getElementById('dateTo').value   = e.toISOString().slice(0,10);
+    highlightPreset('Last 30 days');
+  })();
 
   // ── INIT ─────────────────────────────────────────────────────────────
   loadData();
