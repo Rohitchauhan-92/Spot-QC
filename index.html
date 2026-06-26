@@ -771,11 +771,46 @@ function buildTopQCUsers() {
       calSelStart ? fmt2(calSelStart) + (calSelEnd ? ' → '+fmt2(calSelEnd) : ' → ?') : '';
   }
   function applyCustomRange() {
-    if(!calSelStart) return;
-    const end = calSelEnd || calSelStart;
-    setRange(calSelStart, end, 'Custom range');
-    closeDatePicker();
-  }
+
+if (!calSelStart) return;
+
+const start = new Date(calSelStart);
+
+const end = new Date(calSelEnd || calSelStart);
+
+// Ensure start is before end
+
+const from = start <= end ? start : end;
+
+const to = start <= end ? end : start;
+
+// Save values to hidden inputs
+
+document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+
+document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+
+// Update labels
+
+document.getElementById('dateRangeLabel').textContent = 'Custom range';
+
+document.getElementById('headerDateText').textContent =
+
+from.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-')
+
++ ' → ' +
+
+to.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
+
+// Apply filter
+
+applyFilters();
+
+// Close picker
+
+closeDatePicker();
+
+}
 
   function setRange(s, e, label) {
     const fmt3 = d => d ? d.toISOString().slice(0,10) : '';
