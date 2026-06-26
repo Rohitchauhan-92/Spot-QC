@@ -389,7 +389,11 @@ if (!text || text.trim().length === 0) {
   // ── STATS ────────────────────────────────────────────────────────────
   function updateStats() {
     const total = filteredRows.length;
-    const withIssue = filteredRows.filter(r => r.issue.trim() !== '').length;
+    const withIssue = filteredRows.filter(r =>
+    r.submitIssue &&
+    r.submitIssue.trim() !== '' &&
+    r.submitIssue.trim().toLowerCase() !== 'done'
+).length;
     const done  = filteredRows.filter(r => r.submitIssue.trim().toLowerCase() === 'done').length;
     const nonDone = total - done;
     const doneRate = total ? ((done / total) * 100).toFixed(1) : 0;
