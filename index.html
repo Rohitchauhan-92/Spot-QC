@@ -60,7 +60,11 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 
 .tables-row {display: grid;grid-template-columns: 1fr 1fr;gap: 16px;margin-bottom: 24px;}@media (max-width: 860px) { .tables-row { grid-template-columns: 1fr; } }
 
-.table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;}.table-card-header {padding: 14px 18px;border-bottom: 1px solid var(--border);font-size: 0.82rem;font-weight: 600;color: var(--text);}.table-scroll { overflow-x: auto; }table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }thead th {background: var(--surface2);padding: 10px 14px;text-align: left;font-size: 0.68rem;text-transform: uppercase;letter-spacing: .08em;color: var(--muted);font-weight: 600;white-space: nowrap;}tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }tbody tr { border-bottom: none; }tbody tr { background: var(--surface2); }tbody td { padding: 10px 14px; color: var(--text); vertical-align: middle; }td.mono { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }td.email { font-size: 0.74rem; color: var(--accent2); font-family: var(--mono); word-break: break-all; }
+.table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;}.table-card-header {padding: 14px 18px;border-bottom: 1px solid var(--border);font-size: 0.82rem;font-weight: 600;color: var(--text);}.table-scroll { overflow-x: auto; }table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }thead th {background: var(--surface2);padding: 10px 14px;text-align: left;font-size: 0.68rem;text-transform: uppercase;letter-spacing: .08em;color: var(--muted);font-weight: 600;white-space: nowrap;}
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+th.sortable .arrow { display: inline-block; margin-left: 4px; opacity: .4; font-size: .65rem; }
+th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }tbody tr { border-bottom: none; }tbody tr { background: var(--surface2); }tbody td { padding: 10px 14px; color: var(--text); vertical-align: middle; }td.mono { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }td.email { font-size: 0.74rem; color: var(--accent2); font-family: var(--mono); word-break: break-all; }
 
 /* status pill */.pill {display: inline-block;padding: 2px 9px;border-radius: 20px;font-size: 0.68rem;font-weight: 600;letter-spacing: .03em;}.pill-done { background: rgba(0,212,170,.15); color: var(--accent2); }.pill-other { background: rgba(239,68,68,.12); color: var(--danger); }
 
@@ -253,7 +257,12 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
   <div class="table-card-header">By Login User</div>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Login User</th><th>Images</th><th>Issues</th><th>Done</th></tr></thead>
+      <thead><tr>
+        <th class="sortable" id="th-login-key" onclick="setSort('loginUser','key')">Login User<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-total" onclick="setSort('loginUser','total')">Images<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-issues" onclick="setSort('loginUser','issues')">Issues<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-done" onclick="setSort('loginUser','done')">Done<span class="arrow"></span></th>
+      </tr></thead>
       <tbody id="tableLoginUser"></tbody>
     </table>
   </div>
@@ -266,7 +275,12 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
   </div>
   <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
     <table>
-      <thead style="position:sticky;top:0;z-index:2;"><tr><th>QC User</th><th>Images</th><th>Issues</th><th>Issue Rate</th></tr></thead>
+      <thead style="position:sticky;top:0;z-index:2;"><tr>
+        <th class="sortable" id="th-qc-key" onclick="setSort('qcUser','key')">QC User<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-total" onclick="setSort('qcUser','total')">Images<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-issues" onclick="setSort('qcUser','issues')">Issues<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-rate" onclick="setSort('qcUser','rate')">Issue Rate<span class="arrow"></span></th>
+      </tr></thead>
       <tbody id="tableQCUser"></tbody>
     </table>
   </div>
@@ -278,8 +292,8 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
     <table>
       <thead>
         <tr>
-          <th>QC User</th>
-          <th>Submit Issues</th>
+          <th class="sortable" id="th-topqc-key" onclick="setSort('topQC','key')">QC User<span class="arrow"></span></th>
+          <th class="sortable" id="th-topqc-count" onclick="setSort('topQC','count')">Submit Issues<span class="arrow"></span></th>
         </tr>
       </thead>
       <tbody id="tableTopQC"></tbody>
@@ -297,10 +311,10 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
       <thead>
         <tr>
           <th>#</th>
-          <th>Enterprise</th>
-          <th>Submit Issues</th>
-          <th>Total Images</th>
-          <th>Issue Rate</th>
+          <th class="sortable" id="th-ent-key" onclick="setSort('topEnterprise','key')">Enterprise<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-issues" onclick="setSort('topEnterprise','issues')">Submit Issues<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-total" onclick="setSort('topEnterprise','total')">Total Images<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-rate" onclick="setSort('topEnterprise','rate')">Issue Rate<span class="arrow"></span></th>
         </tr>
       </thead>
       <tbody id="tableTopEnterprise"></tbody>
@@ -312,7 +326,11 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
   <div class="table-card-header">By Submit Issue Status</div>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Status</th><th>Count</th><th>% Share</th></tr></thead>
+      <thead><tr>
+        <th class="sortable" id="th-status-key" onclick="setSort('status','key')">Status<span class="arrow"></span></th>
+        <th class="sortable" id="th-status-count" onclick="setSort('status','count')">Count<span class="arrow"></span></th>
+        <th class="sortable" id="th-status-share" onclick="setSort('status','share')">% Share<span class="arrow"></span></th>
+      </tr></thead>
       <tbody id="tableStatus"></tbody>
     </table>
   </div>
@@ -553,7 +571,70 @@ if (!text || text.trim().length === 0) {
     document.getElementById('statNonDone').textContent    = nonDone.toLocaleString();
   }
 
+  // ── SORTING (generic, used across every table) ─────────────────────
+  // Default direction is ascending, per user preference.
+  const sortState = {
+    loginUser:     { key: 'key',   dir: 'asc' },
+    qcUser:        { key: 'key',   dir: 'asc' },
+    topQC:         { key: 'key',   dir: 'asc' },
+    topEnterprise: { key: 'key',   dir: 'asc' },
+    status:        { key: 'key',   dir: 'asc' },
+    mainTable:     { key: 'timestamp', dir: 'asc' }
+  };
+
+  function compareValues(a, b, dir) {
+    let cmp;
+    if (typeof a === 'number' && typeof b === 'number') {
+      cmp = a - b;
+    } else {
+      cmp = String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+    return dir === 'asc' ? cmp : -cmp;
+  }
+
+  function sortData(data, key, dir) {
+    return [...data].sort((a, b) => compareValues(a[key], b[key], dir));
+  }
+
+  // Toggle direction if the same column is clicked again, otherwise start ascending.
+  function setSort(table, key) {
+    const state = sortState[table];
+    if (state.key === key) {
+      state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.key = key;
+      state.dir = 'asc';
+    }
+    renderSortedTable(table);
+  }
+
+  function updateSortArrows(prefix, table) {
+    document.querySelectorAll(`th[id^="${prefix}-"]`).forEach(th => {
+      th.classList.remove('sort-active');
+      const arrow = th.querySelector('.arrow');
+      if (arrow) arrow.textContent = '';
+    });
+    const state = sortState[table];
+    const activeTh = document.getElementById(`${prefix}-${state.key}`);
+    if (activeTh) {
+      activeTh.classList.add('sort-active');
+      const arrow = activeTh.querySelector('.arrow');
+      if (arrow) arrow.textContent = state.dir === 'asc' ? '▲' : '▼';
+    }
+  }
+
+  function renderSortedTable(table) {
+    if (table === 'loginUser')     renderLoginUserTable();
+    if (table === 'qcUser')        renderQCUserTable();
+    if (table === 'topQC')         renderTopQCTable();
+    if (table === 'topEnterprise') renderTopEnterpriseTable();
+    if (table === 'status')        renderStatusTable();
+    if (table === 'mainTable')     renderTable();
+  }
+
   // ── BREAKDOWN TABLES ─────────────────────────────────────────────────
+  let loginUserData = [], qcUserData = [], topQCData = [], topEnterpriseData = [], statusData = [];
+
   function updateBreakdowns() {
     buildBreakdown('tableLoginUser', 'loginUser');
     buildQCUserTable();
@@ -577,12 +658,18 @@ if (!text || text.trim().length === 0) {
       }
       if (r.submitIssue.trim().toLowerCase() === 'done') map[key].done++;
     });
-    const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
-    const maxTotal = sorted[0]?.[1].total || 1;
-    const tbody = document.getElementById(tbodyId);
-    tbody.innerHTML = sorted.map(([key, v]) => `
+    loginUserData = Object.entries(map).map(([key, v]) => ({ key, ...v }));
+    renderLoginUserTable();
+  }
+
+  function renderLoginUserTable() {
+    const state = sortState.loginUser;
+    const sorted = sortData(loginUserData, state.key, state.dir);
+    const maxTotal = Math.max(1, ...loginUserData.map(v => v.total));
+    const tbody = document.getElementById('tableLoginUser');
+    tbody.innerHTML = sorted.map(v => `
       <tr>
-        <td>${escHtml(key)}</td>
+        <td>${escHtml(v.key)}</td>
         <td>
           <div class="bar-wrap">
             <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
@@ -597,6 +684,8 @@ if (!text || text.trim().length === 0) {
     const card = tbody.closest('.table-card');
     const existing = card && card.querySelector('.btn-drilldown');
     if (existing) existing.remove();
+
+    updateSortArrows('th-login', 'loginUser');
   }
 
   // ── QC USER TABLE (Issue Rate + click-to-expand enterprise breakdown) ──
@@ -609,14 +698,21 @@ if (!text || text.trim().length === 0) {
       const status = (r.submitIssue || '').trim().toLowerCase();
       if (status !== '' && status !== 'done') map[key].issues++;
     });
-    const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
-    const maxTotal = sorted[0]?.[1].total || 1;
+    qcUserData = Object.entries(map).map(([key, v]) => ({
+      key, total: v.total, issues: v.issues,
+      rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+    }));
+    renderQCUserTable();
+  }
+
+  function renderQCUserTable() {
+    const state = sortState.qcUser;
+    const sorted = sortData(qcUserData, state.key, state.dir);
+    const maxTotal = Math.max(1, ...qcUserData.map(v => v.total));
     const tbody = document.getElementById('tableQCUser');
-    tbody.innerHTML = sorted.map(([key, v], idx) => {
-      const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
-      return `
-        <tr class="qc-row" data-qc="${escHtml(key)}" onclick="toggleQCDrilldown(this, ${idx})" style="cursor:pointer;">
-          <td>${escHtml(key)}</td>
+    tbody.innerHTML = sorted.map((v, idx) => `
+        <tr class="qc-row" data-qc="${escHtml(v.key)}" onclick="toggleQCDrilldown(this, ${idx})" style="cursor:pointer;">
+          <td>${escHtml(v.key)}</td>
           <td>
             <div class="bar-wrap">
               <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
@@ -624,10 +720,10 @@ if (!text || text.trim().length === 0) {
             </div>
           </td>
           <td class="mono">${v.issues}</td>
-          <td><span class="pill ${parseFloat(rate) === 0 ? 'pill-done' : 'pill-other'}">${rate}%</span></td>
+          <td><span class="pill ${v.rate === 0 ? 'pill-done' : 'pill-other'}">${v.rate}%</span></td>
         </tr>
-        <tr class="drill-row" id="qc-drill-${idx}"><td colspan="4" style="padding:0;"></td></tr>`;
-    }).join('');
+        <tr class="drill-row" id="qc-drill-${idx}"><td colspan="4" style="padding:0;"></td></tr>`).join('');
+    updateSortArrows('th-qc', 'qcUser');
   }
 
   function toggleQCDrilldown(rowEl, idx) {
