@@ -771,27 +771,25 @@ function toggleEntDrilldown(rowEl, idx) {
     if (wasVisible) return;
 
     const ent = rowEl.dataset.ent;
-    const catMap = {};
-    filteredRows
-        .filter(r => ((r.enterprise || '').trim() || 'N/A') === ent)
-        .forEach(r => {
-            const cat = (r.issue || '').trim() || '(No Issue Category)';
-            if (!catMap[cat]) catMap[cat] = { total: 0, issues: 0 };
-            catMap[cat].total++;
-            const status = (r.submitIssue || '').trim().toLowerCase();
-            if (status !== '' && status !== 'done') catMap[cat].issues++;
-        });
-    const rows = Object.entries(catMap).sort((a,b) => b[1].issues - a[1].issues);
+    const entRows = filteredRows.filter(r => ((r.enterprise || '').trim() || 'N/A') === ent);
+    const entTotal = entRows.length || 1;
 
-    const body = rows.length ? rows.map(([cat, v]) => {
-        const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
+    const catMap = {};
+    entRows.forEach(r => {
+        const cat = (r.submitIssue || '').trim() || '(blank)';
+        catMap[cat] = (catMap[cat] || 0) + 1;
+    });
+    const rows = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+
+    const body = rows.length ? rows.map(([cat, count]) => {
+        const share = ((count / entTotal) * 100).toFixed(1);
+        const isDone = cat.toLowerCase() === 'done';
         return `<tr>
-            <td style="padding:6px 10px;">${escHtml(cat)}</td>
-            <td style="padding:6px 10px;" class="mono">${v.total}</td>
-            <td style="padding:6px 10px;" class="mono">${v.issues}</td>
-            <td style="padding:6px 10px;" class="mono">${rate}%</td>
+            <td style="padding:6px 10px;"><span class="pill ${isDone ? 'pill-done' : 'pill-other'}">${escHtml(cat)}</span></td>
+            <td style="padding:6px 10px;" class="mono">${count}</td>
+            <td style="padding:6px 10px;" class="mono">${share}%</td>
         </tr>`;
-    }).join('') : `<tr><td colspan="4" style="padding:10px;color:var(--muted);">No records</td></tr>`;
+    }).join('') : `<tr><td colspan="3" style="padding:10px;color:var(--muted);">No records</td></tr>`;
 
     drillRow.querySelector('td').innerHTML = `
       <div style="padding:8px 14px 14px;background:var(--bg);">
@@ -801,9 +799,8 @@ function toggleEntDrilldown(rowEl, idx) {
         <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
           <thead>
             <tr>
-              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Category</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Status</th>
               <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Images</th>
-              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Submit Issues</th>
               <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Rate</th>
             </tr>
           </thead>
