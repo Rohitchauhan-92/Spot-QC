@@ -232,10 +232,10 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
       <div class="stat-value" id="statAvgDay">—</div>
       <div class="stat-sub">avg issues per active day</div>
     </div>
-    <div class="stat-card c-purple">
-      <div class="stat-label">Done Rate</div>
-      <div class="stat-value" id="statDoneRate">—</div>
-      <div class="stat-sub">% marked Done</div>
+    <div class="stat-card c-danger">
+      <div class="stat-label">Overall Issue Rate</div>
+      <div class="stat-value" id="statIssueRate">—</div>
+      <div class="stat-sub">% images with an open issue</div>
     </div>
     <div class="stat-card c-danger">
       <div class="stat-label">Non-Done Issues</div>
@@ -260,10 +260,13 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 </div>
 
 <div class="table-card">
-  <div class="table-card-header">By QC User</div>
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>By QC User</span>
+    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for enterprise breakdown</span>
+  </div>
   <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
     <table>
-      <thead style="position:sticky;top:0;z-index:2;"><tr><th>QC User</th><th>Images</th><th>Issues</th><th>Done</th></tr></thead>
+      <thead style="position:sticky;top:0;z-index:2;"><tr><th>QC User</th><th>Images</th><th>Issues</th><th>Issue Rate</th></tr></thead>
       <tbody id="tableQCUser"></tbody>
     </table>
   </div>
@@ -285,7 +288,10 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 </div>
 
 <div class="table-card">
-  <div class="table-card-header">Top 10 Enterprises (Highest Submit Issues)</div>
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Top 10 Enterprises (Highest Submit Issues)</span>
+    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for issue-category breakdown</span>
+  </div>
   <div class="table-scroll">
     <table>
       <thead>
@@ -534,7 +540,7 @@ if (!text || text.trim().length === 0) {
 ).length;
     const done  = filteredRows.filter(r => r.submitIssue.trim().toLowerCase() === 'done').length;
     const nonDone = total - done;
-    const doneRate = total ? ((done / total) * 100).toFixed(1) : 0;
+    const issueRate = total ? ((withIssue / total) * 100).toFixed(1) : 0;
 
     // avg issues per unique day
     const days = new Set(filteredRows.filter(r => r._date).map(r => fmt(r._date)));
@@ -543,14 +549,14 @@ if (!text || text.trim().length === 0) {
     document.getElementById('statTotal').textContent      = total.toLocaleString();
     document.getElementById('statSubmitCount').textContent = withIssue.toLocaleString();
     document.getElementById('statAvgDay').textContent     = avgDay;
-    document.getElementById('statDoneRate').textContent   = doneRate + '%';
+    document.getElementById('statIssueRate').textContent  = issueRate + '%';
     document.getElementById('statNonDone').textContent    = nonDone.toLocaleString();
   }
 
   // ── BREAKDOWN TABLES ─────────────────────────────────────────────────
   function updateBreakdowns() {
     buildBreakdown('tableLoginUser', 'loginUser');
-    buildBreakdown('tableQCUser', 'qcUser');
+    buildQCUserTable();
     buildTopQCUsers();
     buildTopEnterprises();
     buildStatusBreakdown();
@@ -591,6 +597,86 @@ if (!text || text.trim().length === 0) {
     const card = tbody.closest('.table-card');
     const existing = card && card.querySelector('.btn-drilldown');
     if (existing) existing.remove();
+  }
+
+  // ── QC USER TABLE (Issue Rate + click-to-expand enterprise breakdown) ──
+  function buildQCUserTable() {
+    const map = {};
+    filteredRows.forEach(r => {
+      const key = r.qcUser || '(blank)';
+      if (!map[key]) map[key] = { total: 0, issues: 0 };
+      map[key].total++;
+      const status = (r.submitIssue || '').trim().toLowerCase();
+      if (status !== '' && status !== 'done') map[key].issues++;
+    });
+    const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
+    const maxTotal = sorted[0]?.[1].total || 1;
+    const tbody = document.getElementById('tableQCUser');
+    tbody.innerHTML = sorted.map(([key, v], idx) => {
+      const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
+      return `
+        <tr class="qc-row" data-qc="${escHtml(key)}" onclick="toggleQCDrilldown(this, ${idx})" style="cursor:pointer;">
+          <td>${escHtml(key)}</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
+              <span class="bar-val">${v.total}</span>
+            </div>
+          </td>
+          <td class="mono">${v.issues}</td>
+          <td><span class="pill ${parseFloat(rate) === 0 ? 'pill-done' : 'pill-other'}">${rate}%</span></td>
+        </tr>
+        <tr class="drill-row" id="qc-drill-${idx}"><td colspan="4" style="padding:0;"></td></tr>`;
+    }).join('');
+  }
+
+  function toggleQCDrilldown(rowEl, idx) {
+    const drillRow = document.getElementById('qc-drill-' + idx);
+    const wasVisible = drillRow.classList.contains('visible');
+    document.querySelectorAll('#tableQCUser .drill-row.visible').forEach(r => r.classList.remove('visible'));
+    if (wasVisible) return;
+
+    const qc = rowEl.dataset.qc;
+    const entMap = {};
+    filteredRows
+      .filter(r => (r.qcUser || '(blank)') === qc)
+      .forEach(r => {
+        const ent = (r.enterprise || '').trim() || 'N/A';
+        if (!entMap[ent]) entMap[ent] = { total: 0, issues: 0 };
+        entMap[ent].total++;
+        const status = (r.submitIssue || '').trim().toLowerCase();
+        if (status !== '' && status !== 'done') entMap[ent].issues++;
+      });
+    const rows = Object.entries(entMap).sort((a,b) => b[1].issues - a[1].issues);
+
+    const body = rows.length ? rows.map(([ent, v]) => {
+      const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
+      return `<tr>
+        <td style="padding:6px 10px;">${escHtml(ent)}</td>
+        <td style="padding:6px 10px;" class="mono">${v.total}</td>
+        <td style="padding:6px 10px;" class="mono">${v.issues}</td>
+        <td style="padding:6px 10px;" class="mono">${rate}%</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="4" style="padding:10px;color:var(--muted);">No records</td></tr>`;
+
+    drillRow.querySelector('td').innerHTML = `
+      <div style="padding:8px 14px 14px;background:var(--bg);">
+        <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:6px 0 6px 10px;">
+          Enterprise breakdown for ${escHtml(qc)}
+        </div>
+        <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Enterprise</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Images</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Submit Issues</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Rate</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    drillRow.classList.add('visible');
   }
 
   function buildStatusBreakdown() {
@@ -662,9 +748,9 @@ function buildTopEnterprises() {
     const max = rows.length ? rows[0][1].issues : 1;
     document.getElementById('tableTopEnterprise').innerHTML =
         rows.map(([ent, v], i) => `
-            <tr>
+            <tr class="ent-row" data-ent="${escHtml(ent)}" onclick="toggleEntDrilldown(this, ${i})" style="cursor:pointer;">
                 <td class="mono" style="color:var(--accent);font-weight:700;">${i+1}</td>
-                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(ent)}">${escHtml(ent)}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" title="${escHtml(ent)}">${escHtml(ent)}</td>
                 <td>
                     <div class="bar-wrap">
                         <div class="bar" style="width:${Math.max(4,(v.issues/max)*110)}px;background:var(--danger);"></div>
@@ -674,7 +760,57 @@ function buildTopEnterprises() {
                 <td class="mono">${v.total}</td>
                 <td class="mono">${v.total ? ((v.issues/v.total)*100).toFixed(1)+'%' : '—'}</td>
             </tr>
+            <tr class="drill-row" id="ent-drill-${i}"><td colspan="5" style="padding:0;"></td></tr>
         `).join('');
+}
+
+function toggleEntDrilldown(rowEl, idx) {
+    const drillRow = document.getElementById('ent-drill-' + idx);
+    const wasVisible = drillRow.classList.contains('visible');
+    document.querySelectorAll('#tableTopEnterprise .drill-row.visible').forEach(r => r.classList.remove('visible'));
+    if (wasVisible) return;
+
+    const ent = rowEl.dataset.ent;
+    const catMap = {};
+    filteredRows
+        .filter(r => ((r.enterprise || '').trim() || 'N/A') === ent)
+        .forEach(r => {
+            const cat = (r.issue || '').trim() || '(No Issue Category)';
+            if (!catMap[cat]) catMap[cat] = { total: 0, issues: 0 };
+            catMap[cat].total++;
+            const status = (r.submitIssue || '').trim().toLowerCase();
+            if (status !== '' && status !== 'done') catMap[cat].issues++;
+        });
+    const rows = Object.entries(catMap).sort((a,b) => b[1].issues - a[1].issues);
+
+    const body = rows.length ? rows.map(([cat, v]) => {
+        const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
+        return `<tr>
+            <td style="padding:6px 10px;">${escHtml(cat)}</td>
+            <td style="padding:6px 10px;" class="mono">${v.total}</td>
+            <td style="padding:6px 10px;" class="mono">${v.issues}</td>
+            <td style="padding:6px 10px;" class="mono">${rate}%</td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="4" style="padding:10px;color:var(--muted);">No records</td></tr>`;
+
+    drillRow.querySelector('td').innerHTML = `
+      <div style="padding:8px 14px 14px;background:var(--bg);">
+        <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:6px 0 6px 10px;">
+          Issue-category breakdown for ${escHtml(ent)}
+        </div>
+        <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Category</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Images</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Submit Issues</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Rate</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    drillRow.classList.add('visible');
 }
 
   function renderTable() {
