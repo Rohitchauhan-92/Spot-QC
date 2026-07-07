@@ -61,6 +61,12 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 .tables-row {display: grid;grid-template-columns: 1fr 1fr;gap: 16px;margin-bottom: 24px;}@media (max-width: 860px) { .tables-row { grid-template-columns: 1fr; } }
 
 .table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;}.table-card-header {padding: 14px 18px;border-bottom: 1px solid var(--border);font-size: 0.82rem;font-weight: 600;color: var(--text);}.table-scroll { overflow-x: auto; }table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }thead th {background: var(--surface2);padding: 10px 14px;text-align: left;font-size: 0.68rem;text-transform: uppercase;letter-spacing: .08em;color: var(--muted);font-weight: 600;white-space: nowrap;}
+
+.btn-trend-link { background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:0.65rem;padding:4px 11px;border-radius:20px;cursor:pointer;font-weight:600;font-family:var(--sans);white-space:nowrap;transition:background .15s;flex-shrink:0; }
+.btn-trend-link:hover { background:rgba(108,99,255,.12); }
+.toggle-pill { display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px;flex-shrink:0; }
+.toggle-pill button { border:none;background:transparent;color:var(--muted);padding:6px 14px;border-radius:20px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:6px;transition:background .15s,color .15s; }
+.toggle-pill button.active { background:var(--accent);color:#fff; }
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--text); }
 th.sortable .arrow { display: inline-block; margin-left: 4px; opacity: .4; font-size: .65rem; }
@@ -236,7 +242,7 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
       <div class="stat-value" id="statAvgDay">—</div>
       <div class="stat-sub">avg issues per active day</div>
     </div>
-    <div class="stat-card c-danger" id="issueRateCard" onclick="openIssueRateTrendModal()" style="cursor:pointer;" title="Click to view month-wise trend">
+    <div class="stat-card c-danger" id="issueRateCard" onclick="openTrendModal('overall')" style="cursor:pointer;" title="Click to view month-wise trend">
       <div class="stat-label">Overall Issue Rate</div>
       <div class="stat-value" id="statIssueRate">—</div>
       <div class="stat-sub">% images with an open issue · click for trend</div>
@@ -254,7 +260,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   <div class="tables-row">
 
 <div class="table-card">
-  <div class="table-card-header">By Login User</div>
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>By Login User</span>
+    <button class="btn-trend-link" onclick="openTrendModal('loginUser')">View Trend</button>
+  </div>
   <div class="table-scroll">
     <table>
       <thead><tr>
@@ -270,9 +279,12 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 </div>
 
 <div class="table-card">
-  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <span>By QC User</span>
-    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for enterprise breakdown</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for enterprise breakdown</span>
+      <button class="btn-trend-link" onclick="openTrendModal('qcUser')">View Trend</button>
+    </div>
   </div>
   <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
     <table>
@@ -288,7 +300,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 </div>
 
 <div class="table-card">
-  <div class="table-card-header">Top 10 QC Users (Highest Submit Issues)</div>
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Top 10 QC Users (Highest Submit Issues)</span>
+    <button class="btn-trend-link" onclick="openTrendModal('qcUser')">View Trend</button>
+  </div>
   <div class="table-scroll">
     <table>
       <thead>
@@ -304,9 +319,12 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 </div>
 
 <div class="table-card">
-  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <span>Top 10 Enterprises (Highest Submit Issues)</span>
-    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for issue-category breakdown</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for issue-category breakdown</span>
+      <button class="btn-trend-link" onclick="openTrendModal('enterprise')">View Trend</button>
+    </div>
   </div>
   <div class="table-scroll">
     <table>
@@ -325,7 +343,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 </div>
 
 <div class="table-card">
-  <div class="table-card-header">By Submit Issue Status</div>
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>By Submit Issue Status</span>
+    <button class="btn-trend-link" onclick="openTrendModal('status')">View Trend</button>
+  </div>
   <div class="table-scroll">
     <table>
       <thead><tr>
@@ -359,15 +380,28 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   </div>
 </main>
 
-<!-- OVERALL ISSUE RATE TREND MODAL -->
-<div id="issueRateModalOverlay" onclick="if(event.target===this) closeIssueRateTrendModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(880px,92vw);max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+<!-- TREND MODAL (generic — used by Overall Issue Rate + every breakdown table's View Trend button) -->
+<div id="issueRateModalOverlay" onclick="if(event.target===this) closeTrendModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(880px,92vw);max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:600;font-size:0.9rem;">Overall Issue Rate — Month-wise Trend</span>
-      <button onclick="closeIssueRateTrendModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:4px 8px;">&times;</button>
+      <span id="trendModalTitle" style="font-weight:600;font-size:0.9rem;">Overall Issue Rate — Monthly Trend</span>
+      <button onclick="closeTrendModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:4px 8px;">&times;</button>
     </div>
     <div style="padding:20px;">
-      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:14px;">Reflects all data matching your current Login User / QC User / Editing User / Status filters, across every month (independent of the date-range filter above).</div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;">
+        <div id="trendModalKeyWrap" style="display:none;flex:1;min-width:220px;">
+          <select id="trendModalKeySelect" onchange="onTrendKeyChange()" style="width:100%;background:var(--surface2);border:1px solid var(--accent);color:var(--text);border-radius:7px;padding:7px 10px;font-size:0.8rem;font-family:var(--sans);outline:none;"></select>
+        </div>
+        <div class="toggle-pill" id="trendRangeToggle">
+          <button id="trendRange3m" onclick="setTrendRange('3m')">Last 3 Months</button>
+          <button id="trendRangeAll" onclick="setTrendRange('all')">All Time</button>
+        </div>
+        <div class="toggle-pill" id="trendTypeToggle">
+          <button id="trendTypeCurve" onclick="setTrendChartType('curve')">〜 Curve</button>
+          <button id="trendTypeBar" onclick="setTrendChartType('bar')">▮ Bar</button>
+        </div>
+      </div>
+      <div id="trendModalDesc" style="font-size:0.72rem;color:var(--muted);margin-bottom:14px;"></div>
       <canvas id="issueRateTrendChart" height="110" style="display:none;"></canvas>
       <div id="issueRateTrendEmpty" style="text-align:center;color:var(--muted);font-size:0.82rem;padding:50px 0;">No data available for the current filters.</div>
     </div>
@@ -866,30 +900,93 @@ function renderTopQCTable() {
 
     updateSortArrows('th-topqc', 'topQC');
 }
-// ── OVERALL ISSUE RATE TREND (modal, month-wise, aggregate across all users) ──
-let issueRateChartInstance = null;
+// ── TREND MODAL (generic, month-wise, works for Overall + every breakdown dimension) ──
+let trendChartInstance = null;
+const trendModalState = { dimension: 'overall', key: '', range: '3m', chartType: 'bar' };
 
-function openIssueRateTrendModal() {
+const TREND_DIMENSION_META = {
+    overall:   { title: 'Overall Issue Rate — Monthly Trend',  field: null,        allLabel: null },
+    loginUser: { title: 'Login User — Monthly Trend',          field: 'loginUser', allLabel: 'All Login Users (aggregate)' },
+    qcUser:    { title: 'QC User — Monthly Trend',              field: 'qcUser',    allLabel: 'All QC Users (aggregate)' },
+    enterprise:{ title: 'Enterprise — Monthly Trend',           field: 'enterprise',allLabel: 'All Enterprises (aggregate)' },
+    status:    { title: 'Submit Issue Status — Monthly Trend',  field: 'submitIssue', allLabel: 'All Statuses (aggregate)' }
+};
+
+function openTrendModal(dimension, presetKey) {
+    trendModalState.dimension = dimension;
+    trendModalState.key = presetKey || '';
+
     document.getElementById('issueRateModalOverlay').style.display = 'flex';
-    renderIssueRateTrendChart();
+
+    const meta = TREND_DIMENSION_META[dimension] || TREND_DIMENSION_META.overall;
+    document.getElementById('trendModalTitle').textContent = meta.title;
+
+    const keyWrap = document.getElementById('trendModalKeyWrap');
+    const keySelect = document.getElementById('trendModalKeySelect');
+
+    if (dimension === 'overall') {
+        keyWrap.style.display = 'none';
+    } else {
+        keyWrap.style.display = 'block';
+        let unique;
+        if (dimension === 'enterprise') {
+            unique = [...new Set(allRows.map(r => (r.enterprise || '').trim() || 'N/A'))].sort();
+        } else {
+            unique = [...new Set(allRows.map(r => r[meta.field]).filter(Boolean))].sort();
+        }
+        keySelect.innerHTML = `<option value="">${meta.allLabel}</option>` +
+            unique.map(u => `<option value="${escHtml(u)}">${escHtml(u)}</option>`).join('');
+        keySelect.value = (trendModalState.key && unique.includes(trendModalState.key)) ? trendModalState.key : '';
+        trendModalState.key = keySelect.value;
+    }
+
+    updateTrendToggleButtons();
+    renderTrendModalChart();
 }
 
-function closeIssueRateTrendModal() {
+function onTrendKeyChange() {
+    trendModalState.key = document.getElementById('trendModalKeySelect').value;
+    renderTrendModalChart();
+}
+
+function setTrendRange(range) {
+    trendModalState.range = range;
+    updateTrendToggleButtons();
+    renderTrendModalChart();
+}
+
+function setTrendChartType(type) {
+    trendModalState.chartType = type;
+    updateTrendToggleButtons();
+    renderTrendModalChart();
+}
+
+function updateTrendToggleButtons() {
+    document.getElementById('trendRange3m').classList.toggle('active', trendModalState.range === '3m');
+    document.getElementById('trendRangeAll').classList.toggle('active', trendModalState.range === 'all');
+    document.getElementById('trendTypeCurve').classList.toggle('active', trendModalState.chartType === 'curve');
+    document.getElementById('trendTypeBar').classList.toggle('active', trendModalState.chartType === 'bar');
+}
+
+function closeTrendModal() {
     document.getElementById('issueRateModalOverlay').style.display = 'none';
-    if (issueRateChartInstance) { issueRateChartInstance.destroy(); issueRateChartInstance = null; }
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeIssueRateTrendModal();
+    if (e.key === 'Escape') closeTrendModal();
 });
 
-function renderIssueRateTrendChart() {
+function renderTrendModalChart() {
     const canvas = document.getElementById('issueRateTrendChart');
     const emptyMsg = document.getElementById('issueRateTrendEmpty');
+    const descEl = document.getElementById('trendModalDesc');
     if (!canvas || !emptyMsg) return;
 
-    // Respect every active filter EXCEPT the date range, so the trend spans all months
-    // regardless of how narrow the top date-range filter currently is.
+    const { dimension, key, range, chartType } = trendModalState;
+
+    // Respect every active dashboard filter EXCEPT the date range, so the trend spans
+    // every month regardless of how narrow the top date-range filter currently is.
     const login   = document.getElementById('filterLogin').value;
     const qc      = document.getElementById('filterQC').value;
     const editing = document.getElementById('filterEditing').value;
@@ -900,21 +997,43 @@ function renderIssueRateTrendChart() {
         if (qc      && r.qcUser      !== qc)      return false;
         if (editing && r.editUser    !== editing) return false;
         if (status  && r.submitIssue !== status)  return false;
-        return !!r._date;
+        if (!r._date) return false;
+        if (key) {
+            if (dimension === 'loginUser'  && r.loginUser !== key) return false;
+            if (dimension === 'qcUser'     && r.qcUser    !== key) return false;
+            if (dimension === 'enterprise' && ((r.enterprise || '').trim() || 'N/A') !== key) return false;
+            // status dimension: key narrows the numerator only (handled below), not the row set
+        }
+        return true;
     });
 
     const monthMap = {};
     rows.forEach(r => {
         const ym = r._date.getFullYear() + '-' + String(r._date.getMonth() + 1).padStart(2, '0');
-        if (!monthMap[ym]) monthMap[ym] = { total: 0, issues: 0 };
+        if (!monthMap[ym]) monthMap[ym] = { total: 0, match: 0 };
         monthMap[ym].total++;
-        const s = (r.submitIssue || '').trim().toLowerCase();
-        if (s !== '' && s !== 'done') monthMap[ym].issues++;
+        let isMatch;
+        if (dimension === 'status' && key) {
+            isMatch = (r.submitIssue || '').trim() === key;
+        } else {
+            const s = (r.submitIssue || '').trim().toLowerCase();
+            isMatch = s !== '' && s !== 'done';
+        }
+        if (isMatch) monthMap[ym].match++;
     });
 
-    const months = Object.keys(monthMap).sort();
+    let months = Object.keys(monthMap).sort();
+    if (range === '3m') months = months.slice(-3);
 
-    if (issueRateChartInstance) { issueRateChartInstance.destroy(); issueRateChartInstance = null; }
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+
+    const countLabel = (dimension === 'status' && key) ? `"${key}" Count` : 'Submit Issue Images';
+    const rateLabel  = (dimension === 'status' && key) ? `"${key}" Share (%)` : 'Issue Rate (%)';
+
+    if (descEl) {
+        const scopeText = key ? `<b>${escHtml(key)}</b>` : (TREND_DIMENSION_META[dimension] || {}).allLabel || 'all data';
+        descEl.innerHTML = `Showing ${scopeText}, filtered by your current dashboard filters (Login/QC/Editing/Status), independent of the date-range picker above.`;
+    }
 
     if (!months.length) {
         canvas.style.display = 'none';
@@ -937,39 +1056,51 @@ function renderIssueRateTrendChart() {
         const [y, mo] = m.split('-');
         return new Date(+y, +mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
     });
-    const counts = months.map(m => monthMap[m].issues);
-    const rates  = months.map(m => monthMap[m].total ? +((monthMap[m].issues / monthMap[m].total) * 100).toFixed(1) : 0);
+    const counts = months.map(m => monthMap[m].match);
+    const rates  = months.map(m => monthMap[m].total ? +((monthMap[m].match / monthMap[m].total) * 100).toFixed(1) : 0);
 
     const isLight = document.body.classList.contains('light-mode');
     const gridColor = isLight ? '#dde1f0' : '#2e3348';
     const textColor = isLight ? '#6b7280' : '#8892a4';
+    const isCurve = chartType === 'curve';
+    const seriesType = isCurve ? 'line' : 'bar';
 
-    issueRateChartInstance = new Chart(canvas.getContext('2d'), {
+    trendChartInstance = new Chart(canvas.getContext('2d'), {
         data: {
             labels,
             datasets: [
                 {
-                    type: 'bar',
-                    label: 'Submit Issue Images',
+                    type: seriesType,
+                    label: countLabel,
                     data: counts,
                     backgroundColor: '#6c63ff',
-                    borderRadius: 4,
+                    borderColor: '#6c63ff',
+                    borderRadius: isCurve ? 0 : 4,
                     maxBarThickness: 42,
+                    tension: isCurve ? 0.35 : 0,
+                    pointRadius: isCurve ? 4 : 0,
+                    pointBackgroundColor: '#6c63ff',
+                    fill: false,
                     yAxisID: 'y'
                 },
                 {
-                    type: 'bar',
-                    label: 'Issue Rate (%)',
+                    type: seriesType,
+                    label: rateLabel,
                     data: rates,
                     backgroundColor: '#ef4444',
-                    borderRadius: 4,
+                    borderColor: '#ef4444',
+                    borderRadius: isCurve ? 0 : 4,
                     maxBarThickness: 42,
+                    tension: isCurve ? 0.35 : 0,
+                    pointRadius: isCurve ? 4 : 0,
+                    pointBackgroundColor: '#ef4444',
+                    fill: false,
                     yAxisID: 'y1'
                 }
             ]
         },
         plugins: [{
-            id: 'barValueLabels',
+            id: 'valueLabels',
             afterDatasetsDraw(chart) {
                 const { ctx } = chart;
                 ctx.save();
@@ -981,10 +1112,11 @@ function renderIssueRateTrendChart() {
                     if (meta.hidden) return;
                     const isRate = dsIndex === 1;
                     ctx.fillStyle = isRate ? '#ef4444' : '#6c63ff';
-                    meta.data.forEach((bar, i) => {
+                    const yOffset = isCurve ? 10 : 4;
+                    meta.data.forEach((el, i) => {
                         const val = ds.data[i];
                         const label = isRate ? val + '%' : val;
-                        ctx.fillText(label, bar.x, bar.y - 4);
+                        ctx.fillText(label, el.x, el.y - yOffset);
                     });
                 });
                 ctx.restore();
@@ -996,19 +1128,19 @@ function renderIssueRateTrendChart() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { labels: { color: textColor } },
-                title: { display: true, text: 'Overall Issue Rate — Monthly Trend', color: textColor, font: { size: 13 } }
+                title: { display: true, text: TREND_DIMENSION_META[dimension].title, color: textColor, font: { size: 13 } }
             },
             scales: {
                 x: { ticks: { color: textColor }, grid: { color: gridColor } },
                 y: {
                     position: 'left', beginAtZero: true,
-                    title: { display: true, text: 'Submit Issue Images', color: textColor },
+                    title: { display: true, text: countLabel, color: textColor },
                     ticks: { color: textColor, precision: 0 },
                     grid: { color: gridColor }
                 },
                 y1: {
                     position: 'right', beginAtZero: true, max: 100,
-                    title: { display: true, text: 'Issue Rate (%)', color: textColor },
+                    title: { display: true, text: rateLabel, color: textColor },
                     ticks: { color: textColor },
                     grid: { drawOnChartArea: false }
                 }
@@ -1428,7 +1560,7 @@ closeDatePicker();
     const panel = document.getElementById('datePickerPanel');
     if(panel) panel.style.background = 'var(--surface2)';
     // refresh issue-rate trend chart colors for the new theme, if the modal is open
-    if (issueRateChartInstance) renderIssueRateTrendChart();
+    if (trendChartInstance) renderTrendModalChart();
   }
 
   // ── INIT ─────────────────────────────────────────────────────────────
