@@ -236,10 +236,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
       <div class="stat-value" id="statAvgDay">—</div>
       <div class="stat-sub">avg issues per active day</div>
     </div>
-    <div class="stat-card c-danger">
+    <div class="stat-card c-danger" id="issueRateCard" onclick="openIssueRateTrendModal()" style="cursor:pointer;" title="Click to view month-wise trend">
       <div class="stat-label">Overall Issue Rate</div>
       <div class="stat-value" id="statIssueRate">—</div>
-      <div class="stat-sub">% images with an open issue</div>
+      <div class="stat-sub">% images with an open issue · click for trend</div>
     </div>
     <div class="stat-card c-danger">
       <div class="stat-label">Non-Done Issues</div>
@@ -340,21 +340,6 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 
   </div>
 
-  <!-- TREND ANALYSIS -->
-  <div class="section-title">Trend Analysis</div>
-  <div class="table-card" style="margin-bottom:24px;">
-    <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-      <span>Month-wise Issue Rate &amp; Submit Issue Count by QC User</span>
-      <select id="trendUserSelect" onchange="renderTrendChart()" style="background:var(--surface2);border:1px solid var(--accent);color:var(--text);border-radius:7px;padding:6px 10px;font-size:0.8rem;font-family:var(--sans);min-width:240px;outline:none;">
-        <option value="">Select a QC User Email…</option>
-      </select>
-    </div>
-    <div style="padding:20px;">
-      <canvas id="trendChart" height="90" style="display:none;"></canvas>
-      <div id="trendEmpty" style="text-align:center;color:var(--muted);font-size:0.82rem;padding:50px 0;">Select a QC user email above to see their month-wise trend.</div>
-    </div>
-  </div>
-
   <!-- MAIN DATA TABLE -->
 
   <div class="section-title">All Records</div>
@@ -373,6 +358,22 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
     </div>
   </div>
 </main>
+
+<!-- OVERALL ISSUE RATE TREND MODAL -->
+<div id="issueRateModalOverlay" onclick="if(event.target===this) closeIssueRateTrendModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(880px,92vw);max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:600;font-size:0.9rem;">Overall Issue Rate — Month-wise Trend</span>
+      <button onclick="closeIssueRateTrendModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:4px 8px;">&times;</button>
+    </div>
+    <div style="padding:20px;">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:14px;">Reflects all data matching your current Login User / QC User / Editing User / Status filters, across every month (independent of the date-range filter above).</div>
+      <canvas id="issueRateTrendChart" height="110" style="display:none;"></canvas>
+      <div id="issueRateTrendEmpty" style="text-align:center;color:var(--muted);font-size:0.82rem;padding:50px 0;">No data available for the current filters.</div>
+    </div>
+  </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
@@ -507,21 +508,8 @@ if (!text || text.trim().length === 0) {
     fill('filterQC',      unique('qcUser'));
     fill('filterEditing', unique('editUser'));
     fill('filterStatus',  unique('submitIssue'));
-    populateTrendUserSelect();
 
     // date range defaults are handled by the date picker widget
-  }
-
-  // ── TREND USER SELECT ───────────────────────────────────────────────
-  function populateTrendUserSelect() {
-    const sel = document.getElementById('trendUserSelect');
-    if (!sel) return;
-    const cur = sel.value;
-    const unique = [...new Set(allRows.map(r => r.qcUser).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="">Select a QC User Email…</option>' +
-      unique.map(u => `<option value="${escHtml(u)}">${escHtml(u)}</option>`).join('');
-    if (cur && unique.includes(cur)) sel.value = cur;
-    renderTrendChart();
   }
 
   function fill(id, values) {
@@ -878,44 +866,67 @@ function renderTopQCTable() {
 
     updateSortArrows('th-topqc', 'topQC');
 }
-// ── TREND CHART (month-wise Issue Rate + Submit Issue count, per QC user) ──
-let trendChartInstance = null;
+// ── OVERALL ISSUE RATE TREND (modal, month-wise, aggregate across all users) ──
+let issueRateChartInstance = null;
 
-function renderTrendChart() {
-    const sel = document.getElementById('trendUserSelect');
-    const canvas = document.getElementById('trendChart');
-    const emptyMsg = document.getElementById('trendEmpty');
-    if (!sel || !canvas || !emptyMsg) return;
+function openIssueRateTrendModal() {
+    document.getElementById('issueRateModalOverlay').style.display = 'flex';
+    renderIssueRateTrendChart();
+}
 
-    const email = sel.value;
+function closeIssueRateTrendModal() {
+    document.getElementById('issueRateModalOverlay').style.display = 'none';
+    if (issueRateChartInstance) { issueRateChartInstance.destroy(); issueRateChartInstance = null; }
+}
 
-    if (!email) {
-        canvas.style.display = 'none';
-        emptyMsg.style.display = 'block';
-        emptyMsg.textContent = 'Select a QC user email above to see their month-wise trend.';
-        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
-        return;
-    }
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeIssueRateTrendModal();
+});
 
-    // Uses the full dataset (allRows) so the trend isn't clipped by the top date filter.
-    const rows = allRows.filter(r => r.qcUser === email && r._date);
+function renderIssueRateTrendChart() {
+    const canvas = document.getElementById('issueRateTrendChart');
+    const emptyMsg = document.getElementById('issueRateTrendEmpty');
+    if (!canvas || !emptyMsg) return;
+
+    // Respect every active filter EXCEPT the date range, so the trend spans all months
+    // regardless of how narrow the top date-range filter currently is.
+    const login   = document.getElementById('filterLogin').value;
+    const qc      = document.getElementById('filterQC').value;
+    const editing = document.getElementById('filterEditing').value;
+    const status  = document.getElementById('filterStatus').value;
+
+    const rows = allRows.filter(r => {
+        if (login   && r.loginUser   !== login)   return false;
+        if (qc      && r.qcUser      !== qc)      return false;
+        if (editing && r.editUser    !== editing) return false;
+        if (status  && r.submitIssue !== status)  return false;
+        return !!r._date;
+    });
 
     const monthMap = {};
     rows.forEach(r => {
         const ym = r._date.getFullYear() + '-' + String(r._date.getMonth() + 1).padStart(2, '0');
         if (!monthMap[ym]) monthMap[ym] = { total: 0, issues: 0 };
         monthMap[ym].total++;
-        const status = (r.submitIssue || '').trim().toLowerCase();
-        if (status !== '' && status !== 'done') monthMap[ym].issues++;
+        const s = (r.submitIssue || '').trim().toLowerCase();
+        if (s !== '' && s !== 'done') monthMap[ym].issues++;
     });
 
     const months = Object.keys(monthMap).sort();
 
+    if (issueRateChartInstance) { issueRateChartInstance.destroy(); issueRateChartInstance = null; }
+
     if (!months.length) {
         canvas.style.display = 'none';
         emptyMsg.style.display = 'block';
-        emptyMsg.textContent = 'No data found for this user.';
-        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        emptyMsg.textContent = 'No data available for the current filters.';
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        canvas.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        emptyMsg.textContent = 'Chart library failed to load. Check your network connection.';
         return;
     }
 
@@ -933,16 +944,7 @@ function renderTrendChart() {
     const gridColor = isLight ? '#dde1f0' : '#2e3348';
     const textColor = isLight ? '#6b7280' : '#8892a4';
 
-    if (trendChartInstance) trendChartInstance.destroy();
-
-    if (typeof Chart === 'undefined') {
-        emptyMsg.style.display = 'block';
-        emptyMsg.textContent = 'Chart library failed to load. Check your network connection.';
-        canvas.style.display = 'none';
-        return;
-    }
-
-    trendChartInstance = new Chart(canvas.getContext('2d'), {
+    issueRateChartInstance = new Chart(canvas.getContext('2d'), {
         data: {
             labels,
             datasets: [
@@ -994,7 +996,7 @@ function renderTrendChart() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { labels: { color: textColor } },
-                title: { display: true, text: 'Monthly trend — ' + email, color: textColor, font: { size: 13 } }
+                title: { display: true, text: 'Overall Issue Rate — Monthly Trend', color: textColor, font: { size: 13 } }
             },
             scales: {
                 x: { ticks: { color: textColor }, grid: { color: gridColor } },
@@ -1026,15 +1028,28 @@ function buildTopEnterprises() {
             map[ent].issues++;
         }
     });
-    const rows = Object.entries(map)
-        .sort((a, b) => b[1].issues - a[1].issues)
+    topEnterpriseData = Object.entries(map)
+        .map(([key, v]) => ({
+            key,
+            issues: v.issues,
+            total: v.total,
+            rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.issues - a.issues)
         .slice(0, 10);
-    const max = rows.length ? rows[0][1].issues : 1;
+    renderTopEnterpriseTable();
+}
+
+function renderTopEnterpriseTable() {
+    const state = sortState.topEnterprise;
+    const sorted = sortData(topEnterpriseData, state.key, state.dir);
+    const max = topEnterpriseData.length ? Math.max(...topEnterpriseData.map(v => v.issues)) : 1;
+
     document.getElementById('tableTopEnterprise').innerHTML =
-        rows.map(([ent, v], i) => `
-            <tr class="ent-row" data-ent="${escHtml(ent)}" onclick="toggleEntDrilldown(this, ${i})" style="cursor:pointer;">
+        sorted.map((v, i) => `
+            <tr class="ent-row" data-ent="${escHtml(v.key)}" onclick="toggleEntDrilldown(this, ${i})" style="cursor:pointer;">
                 <td class="mono" style="color:var(--accent);font-weight:700;">${i+1}</td>
-                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" title="${escHtml(ent)}">${escHtml(ent)}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" title="${escHtml(v.key)}">${escHtml(v.key)}</td>
                 <td>
                     <div class="bar-wrap">
                         <div class="bar" style="width:${Math.max(4,(v.issues/max)*110)}px;background:var(--danger);"></div>
@@ -1042,10 +1057,12 @@ function buildTopEnterprises() {
                     </div>
                 </td>
                 <td class="mono">${v.total}</td>
-                <td class="mono">${v.total ? ((v.issues/v.total)*100).toFixed(1)+'%' : '—'}</td>
+                <td class="mono">${v.total ? v.rate+'%' : '—'}</td>
             </tr>
             <tr class="drill-row" id="ent-drill-${i}"><td colspan="5" style="padding:0;"></td></tr>
         `).join('');
+
+    updateSortArrows('th-ent', 'topEnterprise');
 }
 
 function toggleEntDrilldown(rowEl, idx) {
@@ -1410,8 +1427,8 @@ closeDatePicker();
     // keep picker panel bg in sync
     const panel = document.getElementById('datePickerPanel');
     if(panel) panel.style.background = 'var(--surface2)';
-    // refresh trend chart colors for the new theme
-    renderTrendChart();
+    // refresh issue-rate trend chart colors for the new theme, if the modal is open
+    if (issueRateChartInstance) renderIssueRateTrendChart();
   }
 
   // ── INIT ─────────────────────────────────────────────────────────────
