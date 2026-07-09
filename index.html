@@ -395,10 +395,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────
   // Data is split across two tabs of the same published sheet:
-  //   • Form Responses 2   (gid=2128295653) → records BEFORE 9-Jul-2026
-  //   • Spot-QC-Responses  (gid=407520037)  → records FROM 9-Jul-2026 onwards
-  // Both are fetched and merged; the cutoff prevents double-counting any
-  // overlapping rows on the switch-over date.
+  //   • Form Responses 2   (gid=2128295653) → records up to AND INCLUDING 9-Jul-2026
+  //   • Spot-QC-Responses  (gid=883483170)  → records FROM 9-Jul-2026 onwards
+  // Both tabs contain 9-Jul data, so rows are deduplicated by image_id
+  // (fallback: timestamp+sku_id) after merging.
   const PUB_BASE =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?single=true&output=csv&gid=';
 
@@ -422,15 +422,16 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
     },
     {
       name: 'Spot-QC-Responses',
-      url:  PUB_BASE + '407520037',
+      url:  PUB_BASE + '883483170',
       side: 'new',
       map:  { timestamp:0, enterprise:2, qcUser:3, editUser:4, skuId:5,
               imageId:6, issue:7, inputImg:8, aiImg:9, finalImg:10,
               loginUser:11, submitIssue:12 }
     }
   ];
-  // Switch-over date: 9-Jul-2026 (local midnight)
-  const CUTOFF = new Date(2026, 6, 9);
+  // Switch-over: new tab starts 9-Jul-2026; old tab kept through end of 9-Jul-2026.
+  const NEW_TAB_START = new Date(2026, 6, 9);   // 9-Jul-2026 local midnight
+  const OLD_TAB_END   = new Date(2026, 6, 10);  // old tab keeps rows < 10-Jul-2026
   const PAGE_SIZE = 50;
 
   // ── STATE ────────────────────────────────────────────────────────────
@@ -455,15 +456,26 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
           throw new Error(`CSV is empty (${src.name})`);
         }
         const rows = parseCSV(text, src.map);
-        // Date-based split so any 9-Jul rows present in BOTH tabs
-        // are not double-counted. Rows with unparseable dates are kept.
+        // Old tab: everything up to and including 9-Jul-2026.
+        // New tab: 9-Jul-2026 onwards. Overlap on 9-Jul is deduped below.
+        // Rows with unparseable dates are kept.
         return rows.filter(r => {
           if (!r._date) return true;
-          return src.side === 'old' ? (r._date < CUTOFF) : (r._date >= CUTOFF);
+          return src.side === 'old' ? (r._date < OLD_TAB_END) : (r._date >= NEW_TAB_START);
         });
       }));
 
-      allRows = results.flat();
+      // Dedup: same record present in both tabs (9-Jul overlap) counted once.
+      // Key = image_id when available, else timestamp+sku_id.
+      const seen = new Set();
+      allRows = results.flat().filter(r => {
+        const key = (r.imageId && r.imageId.trim())
+          ? 'img:' + r.imageId.trim()
+          : 'ts:' + r.timestamp + '|' + r.skuId;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       // keep merged data chronologically sorted (nulls last)
       allRows.sort((a, b) => {
         if (!a._date) return 1;
