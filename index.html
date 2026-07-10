@@ -394,44 +394,56 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────
-  // Data is split across two tabs of the same published sheet:
-  //   • Form Responses 2   (gid=2128295653) → records up to AND INCLUDING 9-Jul-2026
-  //   • Spot-QC-Responses  (gid=883483170)  → records FROM 9-Jul-2026 onwards
-  // Both tabs contain 9-Jul data, so rows are deduplicated by image_id
-  // (fallback: timestamp+sku_id) after merging.
-  const PUB_BASE =
+  // Data comes from THREE sources, split by date:
+  //   • Form Responses 2    (sheet 1, gid=2128295653) → up to AND INCLUDING 9-Jul-2026
+  //   • Spot-QC-Responses   (sheet 1, gid=883483170)  → from 9-Jul-2026 onwards
+  //   • Spot QC - Responce  (sheet 2, gid=1092667553) → from 10-Jul-2026 onwards
+  // Overlapping rows across sources are deduplicated by image_id after merging.
+  const PUB_BASE_1 =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?single=true&output=csv&gid=';
+  const PUB_BASE_2 =
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?single=true&output=csv&gid=';
 
-  // Column maps are 0-indexed sheet columns → row fields.
-  // OLD (Form Responses 2):
-  //   0:Timestamp 1:Enterprise 2:qc-user 3:editing user 4:sku_id
-  //   5:image_id 6:Issue 7:input image 8:Ai image 9:Final Image
-  //   10:Submit Issue 11:login user
-  // NEW (Spot-QC-Responses):
+  // Column maps (0-indexed sheet columns → row fields)
+  // STANDARD layout (Form Responses 2 AND the new Spot QC - Responce sheet):
+  //   0:Timestamp 1:Enterprise 2:QC User 3:Editing User 4:SKU_ID
+  //   5:Image_ID 6:Issue 7:Input Image 8:AI Image 9:Final Image
+  //   10:Submit Issue 11:Login User
+  const MAP_STANDARD = { timestamp:0, enterprise:1, qcUser:2, editUser:3, skuId:4,
+                         imageId:5, issue:6, inputImg:7, aiImg:8, finalImg:9,
+                         submitIssue:10, loginUser:11 };
+  // SPOT-QC-RESPONSES layout:
   //   0:Timestamp 1:Mode 2:Enterprise 3:QC User 4:Editor 5:SKU_ID
   //   6:Image_URL 7:Issue 8:Left_URL 9:Mid_URL 10:Right_URL
   //   11:Login User 12:Verdict   (Mode is ignored; Verdict = Submit Issue)
+  const MAP_SPOTQC = { timestamp:0, enterprise:2, qcUser:3, editUser:4, skuId:5,
+                       imageId:6, issue:7, inputImg:8, aiImg:9, finalImg:10,
+                       loginUser:11, submitIssue:12 };
+
+  // Each source keeps only rows inside its [from, to) date window (null = open).
   const SOURCES = [
     {
       name: 'Form Responses 2',
-      url:  PUB_BASE + '2128295653',
-      side: 'old',
-      map:  { timestamp:0, enterprise:1, qcUser:2, editUser:3, skuId:4,
-              imageId:5, issue:6, inputImg:7, aiImg:8, finalImg:9,
-              submitIssue:10, loginUser:11 }
+      url:  PUB_BASE_1 + '2128295653',
+      map:  MAP_STANDARD,
+      from: null,
+      to:   new Date(2026, 6, 10)   // rows before 10-Jul-2026 (i.e. through 9-Jul)
     },
     {
       name: 'Spot-QC-Responses',
-      url:  PUB_BASE + '883483170',
-      side: 'new',
-      map:  { timestamp:0, enterprise:2, qcUser:3, editUser:4, skuId:5,
-              imageId:6, issue:7, inputImg:8, aiImg:9, finalImg:10,
-              loginUser:11, submitIssue:12 }
+      url:  PUB_BASE_1 + '883483170',
+      map:  MAP_SPOTQC,
+      from: new Date(2026, 6, 9),   // 9-Jul-2026 onwards
+      to:   null
+    },
+    {
+      name: 'Spot QC - Responce (new sheet)',
+      url:  PUB_BASE_2 + '1092667553',
+      map:  MAP_STANDARD,
+      from: new Date(2026, 6, 10),  // 10-Jul-2026 onwards
+      to:   null
     }
   ];
-  // Switch-over: new tab starts 9-Jul-2026; old tab kept through end of 9-Jul-2026.
-  const NEW_TAB_START = new Date(2026, 6, 9);   // 9-Jul-2026 local midnight
-  const OLD_TAB_END   = new Date(2026, 6, 10);  // old tab keeps rows < 10-Jul-2026
   const PAGE_SIZE = 50;
 
   // ── STATE ────────────────────────────────────────────────────────────
@@ -456,12 +468,13 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
           throw new Error(`CSV is empty (${src.name})`);
         }
         const rows = parseCSV(text, src.map);
-        // Old tab: everything up to and including 9-Jul-2026.
-        // New tab: 9-Jul-2026 onwards. Overlap on 9-Jul is deduped below.
+        // Keep only rows inside this source's date window.
         // Rows with unparseable dates are kept.
         return rows.filter(r => {
           if (!r._date) return true;
-          return src.side === 'old' ? (r._date < OLD_TAB_END) : (r._date >= NEW_TAB_START);
+          if (src.from && r._date < src.from) return false;
+          if (src.to   && r._date >= src.to)  return false;
+          return true;
         });
       }));
 
