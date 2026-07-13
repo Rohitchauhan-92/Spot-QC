@@ -365,24 +365,6 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 </div>
 
   </div>
-
-  <!-- MAIN DATA TABLE -->
-
-  <div class="section-title">All Records</div>
-  <div class="main-table-card">
-    <div class="main-table-header">
-      <span>Detailed View</span>
-      <span id="rowCount">—</span>
-    </div>
-    <div id="tableContainer">
-      <div class="loader"><div class="spinner"></div> Loading data from Google Sheets…</div>
-    </div>
-    <div class="pagination" id="pagination" style="display:none">
-      <button class="btn-page" id="btnPrev" onclick="changePage(-1)">← Prev</button>
-      <span class="page-info" id="pageInfo"></span>
-      <button class="btn-page" id="btnNext" onclick="changePage(1)">Next →</button>
-    </div>
-  </div>
 </main>
 
 <!-- TREND MODAL (generic — used by all 5 stat cards) -->
@@ -472,10 +454,16 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   let currentPage  = 1;
 
   // ── LOAD ─────────────────────────────────────────────────────────────
+  function setStatus(html) {
+    const tc = document.getElementById('tableContainer');   // legacy (removed section)
+    if (tc) tc.innerHTML = html;
+  }
+
   async function loadData() {
-    document.getElementById('tableContainer').innerHTML =
-      '<div class="loader"><div class="spinner"></div> Fetching live data…</div>';
-    document.getElementById('pagination').style.display = 'none';
+    document.getElementById('lastRefresh').textContent = 'Loading…';
+    setStatus('<div class="loader"><div class="spinner"></div> Fetching live data…</div>');
+    const pg = document.getElementById('pagination');
+    if (pg) pg.style.display = 'none';
 
     try {
       const results = await Promise.all(SOURCES.map(async (src) => {
@@ -521,9 +509,8 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
       populateFilters();
       applyFilters();
     } catch (e) {
-      document.getElementById('tableContainer').innerHTML =
-        `<div class="error-msg">⚠ Could not load data.<br><small>${e.message}</small><br><br>
-        Make sure both sheet tabs are published (File → Share → Publish to web) and shared publicly.</div>`;
+      document.getElementById('lastRefresh').textContent = '⚠ Load failed: ' + e.message;
+      setStatus(`<div class="error-msg">⚠ Could not load data.<br><small>${e.message}</small></div>`);
     }
   }
 
@@ -1355,6 +1342,10 @@ function toggleEntDrilldown(rowEl, idx) {
 }
 
   function renderTable() {
+    // "All Records" detailed view was removed from the page; keep this as a
+    // safe no-op so applyFilters()/sorting keep working unchanged.
+    const container = document.getElementById('tableContainer');
+    if (!container) return;
     const start = (currentPage - 1) * PAGE_SIZE;
     const page  = filteredRows.slice(start, start + PAGE_SIZE);
     const total = filteredRows.length;
