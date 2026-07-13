@@ -293,15 +293,15 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   </div>
 </div>
 
-<div class="table-card">
+<div class="table-card" style="grid-column: 1 / -1;">
   <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
     <span>QC'd Images per User</span>
     <span id="qcCountUsers" style="font-size:0.65rem;color:var(--muted);font-weight:400;">—</span>
   </div>
-  <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
+  <div class="table-scroll" style="max-height:380px;overflow-y:auto;">
     <table>
       <thead style="position:sticky;top:0;z-index:2;"><tr>
-        <th class="sortable" id="th-qccount-key" onclick="setSort('qcCount','key')">QC User<span class="arrow"></span></th>
+        <th class="sortable" id="th-qccount-key" onclick="setSort('qcCount','key')" style="width:40%;">QC User<span class="arrow"></span></th>
         <th class="sortable" id="th-qccount-count" onclick="setSort('qcCount','count')">QC'd Images<span class="arrow"></span></th>
       </tr></thead>
       <tbody id="tableQCCount"></tbody>
@@ -929,7 +929,7 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
         <td class="email">${escHtml(v.key)}</td>
         <td>
           <div class="bar-wrap">
-            <div class="bar" style="width:${Math.max(4, (v.count/max)*120)}px"></div>
+            <div class="bar" style="width:${Math.max(4, (v.count/max)*260)}px"></div>
             <span class="bar-val">${v.count.toLocaleString()}</span>
           </div>
         </td>
