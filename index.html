@@ -48,7 +48,7 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 
 /* ── HEADER ── */header {background: var(--surface);border-bottom: 1px solid var(--border);padding: 0 28px;display: flex;align-items: center;justify-content: space-between;height: 60px;position: sticky;top: 0;z-index: 100;}.logo {display: flex;align-items: center;gap: 10px;font-weight: 700;font-size: 1rem;letter-spacing: -0.02em;}.logo-dot {width: 8px; height: 8px;border-radius: 50%;background: var(--accent2);box-shadow: 0 0 8px var(--accent2);}.header-right {display: flex;align-items: center;gap: 12px;}#lastRefresh {font-size: 0.72rem;color: var(--muted);font-family: var(--mono);}.btn-refresh {background: var(--accent);color: #fff;border: none;padding: 7px 16px;border-radius: 6px;font-size: 0.8rem;font-weight: 600;cursor: pointer;display: flex;align-items: center;gap: 6px;transition: opacity .15s;}.btn-refresh { opacity: .85; }.btn-refresh svg { width: 14px; height: 14px; }
 
-/* ── MAIN ── */main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+/* ── MAIN ── */main { padding: 24px 28px; width: 100%; max-width: none; margin: 0 auto; }
 
 /* ── FILTERS ── */.filters {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;padding: 18px 20px;display: flex;flex-wrap: wrap;gap: 14px;align-items: flex-end;margin-bottom: 24px;}.filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 170px; flex: 1; }.filter-group label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }.filter-group select,.filter-group input[type="date"] {background: var(--surface2);border: 1px solid var(--border);color: var(--text);border-radius: 7px;padding: 8px 10px;font-size: 0.82rem;font-family: var(--sans);outline: none;transition: border-color .15s;}.filter-group select,.filter-group input[type="date"] { border-color: var(--accent); }.filter-group select option { background: #1a1d27; }.btn-clear {background: transparent;border: 1px solid var(--border);color: var(--muted);padding: 8px 16px;border-radius: 7px;font-size: 0.8rem;cursor: pointer;font-family: var(--sans);transition: color .15s, border-color .15s;height: 36px;}.btn-clear { color: var(--text); border-color: var(--accent); }
 
@@ -298,9 +298,9 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
     <span>QC'd Images per User</span>
     <span id="qcCountUsers" style="font-size:0.65rem;color:var(--muted);font-weight:400;">—</span>
   </div>
-  <div class="table-scroll" style="max-height:380px;overflow-y:auto;">
+  <div class="table-scroll">
     <table>
-      <thead style="position:sticky;top:0;z-index:2;"><tr>
+      <thead><tr>
         <th class="sortable" id="th-qccount-key" onclick="setSort('qcCount','key')" style="width:40%;">QC User<span class="arrow"></span></th>
         <th class="sortable" id="th-qccount-count" onclick="setSort('qcCount','count')">QC'd Images<span class="arrow"></span></th>
       </tr></thead>
