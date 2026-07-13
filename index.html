@@ -97,6 +97,18 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   border-radius: 20px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700;
 }
 
+/* ── QC MATRIX (date-wise) ── */
+.qc-matrix { border-collapse: separate; border-spacing: 0; }
+.qc-matrix th, .qc-matrix td { white-space: nowrap; }
+.qc-matrix th.sticky-col, .qc-matrix td.sticky-col {
+  position: sticky; left: 0; background: var(--surface2); z-index: 1;
+}
+.qc-matrix thead th { position: sticky; top: 0; z-index: 2; }
+.qc-matrix thead th.sticky-col { z-index: 3; }
+.qc-matrix td.zero { color: var(--danger); font-weight: 700; text-align: center; }
+.qc-matrix td.num { font-family: var(--mono); font-size: 0.75rem; }
+.qc-matrix tr.total-row td { font-weight: 700; border-top: 1px solid var(--border); }
+
 /* loading / error */.loader {display: flex;align-items: center;justify-content: center;padding: 60px;gap: 14px;color: var(--muted);font-size: 0.85rem;}.spinner {width: 20px; height: 20px;border: 2px solid var(--border);border-top-color: var(--accent);border-radius: 50%;animation: spin .7s linear infinite;}@keyframes spin { to { transform: rotate(360deg); } }.error-msg { color: var(--danger); text-align: center; padding: 40px; font-size: .85rem; }
 
 /* pagination */.pagination {display: flex;align-items: center;justify-content: flex-end;gap: 8px;padding: 12px 18px;border-top: 1px solid var(--border);}.btn-page {background: var(--surface2);border: 1px solid var(--border);color: var(--text);padding: 5px 12px;border-radius: 6px;font-size: 0.78rem;cursor: pointer;font-family: var(--sans);transition: border-color .15s;}.btn-page:hover() { border-color: var(--accent); }.btn-page { opacity: .3; cursor: default; }.page-info { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); }
@@ -295,18 +307,10 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 
 <div class="table-card" style="grid-column: 1 / -1;">
   <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
-    <span>QC'd Images per User</span>
+    <span>QC'd Images per User (Date-wise)</span>
     <span id="qcCountUsers" style="font-size:0.65rem;color:var(--muted);font-weight:400;">—</span>
   </div>
-  <div class="table-scroll">
-    <table>
-      <thead><tr>
-        <th class="sortable" id="th-qccount-key" onclick="setSort('qcCount','key')" style="width:40%;">QC User<span class="arrow"></span></th>
-        <th class="sortable" id="th-qccount-count" onclick="setSort('qcCount','count')">QC'd Images<span class="arrow"></span></th>
-      </tr></thead>
-      <tbody id="tableQCCount"></tbody>
-    </table>
-  </div>
+  <div class="table-scroll" id="qcMatrixWrap" style="max-height:520px;overflow:auto;"></div>
 </div>
 
 <div class="table-card">
@@ -697,7 +701,7 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   const sortState = {
     loginUser:     { key: 'key',   dir: 'asc' },
     qcUser:        { key: 'key',   dir: 'asc' },
-    qcCount:       { key: 'count', dir: 'desc' },
+    qcCount:       { key: 'total', dir: 'desc' },
     topQC:         { key: 'key',   dir: 'asc' },
     topEnterprise: { key: 'key',   dir: 'asc' },
     status:        { key: 'key',   dir: 'asc' },
@@ -903,43 +907,94 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
     drillRow.classList.add('visible');
   }
 
-  // ── QC'D IMAGES PER USER (all rows per QC user, date-filter aware) ──
+  // ── QC'D IMAGES PER USER — DATE-WISE MATRIX (filter aware) ──
+  // Rows = QC users, one column per date in the filtered range,
+  // cell = images QC'd that day (✕ when none), plus a Total column.
+  let qcCountDates = [];
+
   function buildQCCountTable() {
-    const map = {};
+    const userMap = {};
+    const dateSet = new Set();
     filteredRows.forEach(r => {
       const key = r.qcUser || '(blank)';
-      map[key] = (map[key] || 0) + 1;
+      if (!userMap[key]) userMap[key] = { key, total: 0, byDate: {} };
+      userMap[key].total++;
+      if (r._date) {
+        const d = fmt(r._date);
+        dateSet.add(d);
+        userMap[key].byDate[d] = (userMap[key].byDate[d] || 0) + 1;
+      }
     });
-    qcCountData = Object.entries(map).map(([key, count]) => ({ key, count }));
+    qcCountDates = [...dateSet].sort();
+    qcCountData  = Object.values(userMap);
     renderQCCountTable();
   }
 
+  const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function dateColLabel(ds) {           // "2026-07-01" → "1-Jul"
+    const [y, m, d] = ds.split('-');
+    return (+d) + '-' + MON3[+m - 1];
+  }
+
   function renderQCCountTable() {
+    const wrap = document.getElementById('qcMatrixWrap');
+    if (!wrap) return;
     const state = sortState.qcCount;
     const sorted = sortData(qcCountData, state.key, state.dir);
-    const max = Math.max(1, ...qcCountData.map(v => v.count));
-    const totalImages = qcCountData.reduce((s, v) => s + v.count, 0);
+    const totalImages = qcCountData.reduce((s, v) => s + v.total, 0);
 
     document.getElementById('qcCountUsers').textContent =
-      qcCountData.length + ' users · ' + totalImages.toLocaleString() + ' images';
+      qcCountData.length + ' users · ' + totalImages.toLocaleString() +
+      ' images · ' + qcCountDates.length + ' days';
 
-    const tbody = document.getElementById('tableQCCount');
-    tbody.innerHTML = sorted.map(v => `
-      <tr>
-        <td class="email">${escHtml(v.key)}</td>
-        <td>
-          <div class="bar-wrap">
-            <div class="bar" style="width:${Math.max(4, (v.count/max)*260)}px"></div>
-            <span class="bar-val">${v.count.toLocaleString()}</span>
-          </div>
-        </td>
-      </tr>`).join('') + `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="font-weight:700;">Total (${qcCountData.length} users)</td>
-        <td class="mono" style="font-weight:700;color:var(--text);">${totalImages.toLocaleString()}</td>
+    if (!qcCountData.length) {
+      wrap.innerHTML = '<div class="loader" style="color:var(--muted)">No records match the current filters.</div>';
+      return;
+    }
+
+    const arrow = k => state.key === k ? (state.dir === 'asc' ? ' ▲' : ' ▼') : '';
+
+    const headDates = qcCountDates.map(d =>
+      `<th>${dateColLabel(d)}</th>`).join('');
+
+    const bodyRows = sorted.map(u => {
+      const cells = qcCountDates.map(d => {
+        const c = u.byDate[d];
+        return c
+          ? `<td class="num">${c.toLocaleString()}</td>`
+          : `<td class="zero">✕</td>`;
+      }).join('');
+      return `<tr>
+        <td class="sticky-col email">${escHtml(u.key)}</td>
+        ${cells}
+        <td class="num" style="font-weight:700;color:var(--text);">${u.total.toLocaleString()}</td>
       </tr>`;
+    }).join('');
 
-    updateSortArrows('th-qccount', 'qcCount');
+    // per-date totals footer row
+    const dateTotals = qcCountDates.map(d => {
+      const t = qcCountData.reduce((s, u) => s + (u.byDate[d] || 0), 0);
+      return `<td class="num">${t.toLocaleString()}</td>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="qc-matrix">
+        <thead>
+          <tr>
+            <th class="sticky-col sortable ${state.key==='key'?'sort-active':''}" onclick="setSort('qcCount','key')">QC User${arrow('key')}</th>
+            ${headDates}
+            <th class="sortable ${state.key==='total'?'sort-active':''}" onclick="setSort('qcCount','total')">Total${arrow('total')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+          <tr class="total-row">
+            <td class="sticky-col">Total (${qcCountData.length} users)</td>
+            ${dateTotals}
+            <td class="num" style="color:var(--text);">${totalImages.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>`;
   }
 
   function buildStatusBreakdown() {
