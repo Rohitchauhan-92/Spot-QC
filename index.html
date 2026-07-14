@@ -133,7 +133,7 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
       <span id="headerDateText">Last 30 days</span>
     </div>
     <span id="lastRefresh" style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);">Not yet loaded</span>
-    <button class="btn-refresh" onclick="loadData()">
+    <button class="btn-refresh" onclick="loadData(true)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
         <path d="M3 3v5h5"/>
@@ -151,6 +151,13 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 <main>
   <!-- FILTERS -->
   <div class="filters">
+    <div class="filter-group" style="min-width:130px;flex:0 0 140px;">
+      <label>Product</label>
+      <select id="filterProduct" onchange="switchProduct()">
+        <option value="images">Images</option>
+        <option value="360">360-Spin</option>
+      </select>
+    </div>
     <div class="filter-group" style="min-width:200px;position:relative;">
       <label>Date Range</label>
       <button id="dateRangeBtn" onclick="toggleDatePicker(event)" style="
@@ -396,47 +403,79 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────
-  // Data comes from TWO sources, split by date:
+  // Two PRODUCTS, selectable via the Product filter:
+  //
+  // IMAGES — data from TWO sources, split by date (logic unchanged):
   //   • Form Responses 2    (sheet 1, gid=2128295653) → up to AND INCLUDING 9-Jul-2026
   //   • Spot QC - Responce  (sheet 2, gid=1092667553) → from 9-Jul-2026 onwards
-  // Both may contain 9-Jul rows; overlap is deduplicated by image_id after merging.
+  //   Both may contain 9-Jul rows; overlap is deduplicated by image_id after merging.
+  //
+  // 360-SPIN — single source:
+  //   • 360-Responses       (sheet 2, gid=1075238960) → all rows
   const PUB_BASE_1 =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?single=true&output=csv&gid=';
   const PUB_BASE_2 =
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?single=true&output=csv&gid=';
 
-  // Column map (0-indexed sheet columns → row fields).
-  // Both sheets share the SAME layout:
+  // Column maps (0-indexed sheet columns → row fields).
+  // IMAGES sheets (both share the same layout):
   //   0:Timestamp 1:Enterprise 2:QC User 3:Editing User 4:SKU_ID
   //   5:Image_ID 6:Issue 7:Input Image 8:AI Image 9:Final Image
   //   10:Submit Issue 11:Login User
   const MAP_STANDARD = { timestamp:0, enterprise:1, qcUser:2, editUser:3, skuId:4,
                          imageId:5, issue:6, inputImg:7, aiImg:8, finalImg:9,
                          submitIssue:10, loginUser:11 };
+  // 360-RESPONSES layout:
+  //   0:Timestamp 1:SKU_ID 2:Spin_ID 3:Issues 4:Enterprise 5:User(QC)
+  //   6:spin_url 7:Reason(=Submit Issue) 8:Date(ignored) 9:QC By(=Login User)
+  //   Timestamp (col A) drives the date filter. No Editing User for 360.
+  const MAP_360 = { timestamp:0, skuId:1, imageId:2, issue:3, enterprise:4,
+                    qcUser:5, inputImg:6, submitIssue:7, loginUser:9 };
 
   // Each source keeps only rows inside its [from, to) date window (null = open).
-  const SOURCES = [
-    {
-      name: 'Form Responses 2',
-      url:  PUB_BASE_1 + '2128295653',
-      map:  MAP_STANDARD,
-      from: null,
-      to:   new Date(2026, 6, 10)   // rows before 10-Jul-2026 (i.e. through 9-Jul)
-    },
-    {
-      name: 'Spot QC - Responce (new sheet)',
-      url:  PUB_BASE_2 + '1092667553',
-      map:  MAP_STANDARD,
-      from: new Date(2026, 6, 9),   // 9-Jul-2026 onwards
-      to:   null
-    }
-  ];
+  const SOURCES_BY_PRODUCT = {
+    images: [
+      {
+        name: 'Form Responses 2',
+        url:  PUB_BASE_1 + '2128295653',
+        map:  MAP_STANDARD,
+        from: null,
+        to:   new Date(2026, 6, 10)   // rows before 10-Jul-2026 (i.e. through 9-Jul)
+      },
+      {
+        name: 'Spot QC - Responce (new sheet)',
+        url:  PUB_BASE_2 + '1092667553',
+        map:  MAP_STANDARD,
+        from: new Date(2026, 6, 9),   // 9-Jul-2026 onwards
+        to:   null
+      }
+    ],
+    '360': [
+      {
+        name: '360-Responses',
+        url:  PUB_BASE_2 + '1075238960',
+        map:  MAP_360,
+        from: null,
+        to:   null
+      }
+    ]
+  };
   const PAGE_SIZE = 50;
 
   // ── STATE ────────────────────────────────────────────────────────────
   let allRows      = [];   // parsed from CSV, objects
   let filteredRows = [];
   let currentPage  = 1;
+  let currentProduct = 'images';
+  const productCache = {};   // product → merged rows (so switching is instant)
+
+  function switchProduct() {
+    // reset value-filters since options differ per product
+    ['filterLogin','filterQC','filterEditing','filterStatus'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    loadData();
+  }
 
   // ── LOAD ─────────────────────────────────────────────────────────────
   function setStatus(html) {
@@ -444,13 +483,24 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
     if (tc) tc.innerHTML = html;
   }
 
-  async function loadData() {
+  async function loadData(force = false) {
+    currentProduct = document.getElementById('filterProduct')?.value || 'images';
+
+    // serve from cache on product switch (Refresh button forces a refetch)
+    if (!force && productCache[currentProduct]) {
+      allRows = productCache[currentProduct];
+      populateFilters();
+      applyFilters();
+      return;
+    }
+
     document.getElementById('lastRefresh').textContent = 'Loading…';
     setStatus('<div class="loader"><div class="spinner"></div> Fetching live data…</div>');
     const pg = document.getElementById('pagination');
     if (pg) pg.style.display = 'none';
 
     try {
+      const SOURCES = SOURCES_BY_PRODUCT[currentProduct];
       const results = await Promise.all(SOURCES.map(async (src) => {
         const res = await fetch(src.url);
         if (!res.ok) {
@@ -488,6 +538,8 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
         if (!b._date) return -1;
         return a._date - b._date;
       });
+
+      productCache[currentProduct] = allRows;
 
       document.getElementById('lastRefresh').textContent =
         'Updated ' + new Date().toLocaleTimeString();
