@@ -552,15 +552,41 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
   }
 
   // ── CSV PARSER ────────────────────────────────────────────────────────
+  // Quote-aware: handles commas AND newlines inside quoted cells (e.g. the
+  // multi-line "Issues" column in 360-Responses) plus escaped "" quotes.
+  function parseCSVText(text) {
+    const records = [];
+    let row = [], cur = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQ) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { cur += '"'; i++; }  // escaped quote
+          else inQ = false;
+        } else cur += c;                                  // keeps \n inside quotes
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(cur); cur = '';
+          records.push(row); row = [];
+        } else cur += c;
+      }
+    }
+    if (cur !== '' || row.length) { row.push(cur); records.push(row); }
+    return records;
+  }
+
   function parseCSV(text, map) {
-    const lines  = text.split(/\r?\n/).filter(l => l.trim());
-    if (!lines.length) return [];
-    const rows   = [];
-    for (let i = 1; i < lines.length; i++) {      // skip header row
-      const cols = splitCSVLine(lines[i]);
-      if (cols.length < 2) continue;
+    const records = parseCSVText(text);
+    if (!records.length) return [];
+    const rows = [];
+    for (let i = 1; i < records.length; i++) {      // skip header row
+      const cols = records[i].map(c => c.trim());
+      if (cols.length < 2) continue;                // empty/padding record
       const ts = cols[map.timestamp] || '';
-      if (!ts.trim()) continue;                   // skip blank/padding rows
+      if (!ts) continue;                            // skip blank rows
       rows.push({
         timestamp:   ts,
         enterprise:  cols[map.enterprise]  || '',
@@ -568,7 +594,8 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
         editUser:    cols[map.editUser]    || '',
         skuId:       cols[map.skuId]       || '',
         imageId:     cols[map.imageId]     || '',
-        issue:       cols[map.issue]       || '',
+        // collapse in-cell newlines for clean display ("A: Blocker | B: Low")
+        issue:       (cols[map.issue] || '').replace(/\s*\n\s*/g, ' | '),
         inputImg:    cols[map.inputImg]    || '',
         aiImg:       cols[map.aiImg]       || '',
         finalImg:    cols[map.finalImg]    || '',
@@ -578,18 +605,6 @@ th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { b
       });
     }
     return rows;
-  }
-
-  function splitCSVLine(line) {
-    const result = []; let cur = ''; let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; }
-      else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
-      else { cur += c; }
-    }
-    result.push(cur.trim());
-    return result;
   }
 
   function parseDate(str) {
